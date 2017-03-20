@@ -20,6 +20,8 @@ class Navigation:
 
     # Constructor
     def __init__(self):
+        self.flag = True
+        self.angle = 0
 
         # Initializations
         self.robot_perception = RobotPerception()
@@ -76,11 +78,11 @@ class Navigation:
 
         self.counter_to_next_sub -= 1
 
-        if self.counter_to_next_sub == 0:
-          Print.art_print('\n~~~~ Time reset ~~~~',Print.RED) 
-          self.inner_target_exists = False
-          self.target_exists = False
-          return
+        # if self.counter_to_next_sub == 0:
+        #   Print.art_print('\n~~~~ Time reset ~~~~',Print.RED) 
+        #   self.inner_target_exists = False
+        #   self.target_exists = False
+        #   return
 
         # Get the robot pose in pixels
         [rx, ry] = [\
@@ -90,21 +92,25 @@ class Navigation:
                     self.robot_perception.origin['y'] / self.robot_perception.resolution\
                     ]
 
-        # Find the distance between the robot pose and the next subtarget
-        dist = math.hypot(\
-            rx - self.subtargets[self.next_subtarget][0], \
-            ry - self.subtargets[self.next_subtarget][1])
+        
 
         ######################### NOTE: QUESTION  ##############################
         # What if a later subtarget or the end has been reached before the 
         # next subtarget? Alter the code accordingly.
         # Check if distance is less than 7 px (14 cm)
-        if dist < 5:
-          self.next_subtarget += 1
-          self.counter_to_next_sub = self.count_limit
-          # Check if the final subtarget has been approached
-          if self.next_subtarget == len(self.subtargets):
-            self.target_exists = False
+
+        for index in range(self.next_subtarget, len(self.subtargets)):
+          # Find the distance between the robot pose and the next subtarget
+            dist = math.hypot(\
+                rx - self.subtargets[index][0], \
+                ry - self.subtargets[index][1])
+            if dist < 5:
+                self.next_subtarget = index+1
+                self.counter_to_next_sub = self.count_limit
+                # Check if the final subtarget has been approached
+                if self.next_subtarget == len(self.subtargets):
+                    self.target_exists = False
+
         ########################################################################
         
         # Publish the current target
@@ -201,19 +207,51 @@ class Navigation:
         self.path = self.path[::-1]
 
         # Break the path to subgoals every 2 pixels (1m = 20px)
-        step = 1
-        n_subgoals = (int) (len(self.path)/step)
-        self.subtargets = []
-        for i in range(0, n_subgoals):
-          self.subtargets.append(self.path[i * step])
-        self.subtargets.append(self.path[-1])
-        self.next_subtarget = 0
-        print "The path produced " + str(len(self.subtargets)) + " subgoals"
+        # step = 1
+        # n_subgoals = (int) (len(self.path)/step)
+        # self.subtargets = []
+        # for i in range(0, n_subgoals):
+        #   self.subtargets.append(self.path[i * step])
+        # self.subtargets.append(self.path[-1])
+        # self.next_subtarget = 0
+        # print "The path produced " + str(len(self.subtargets)) + " subgoals"
         
         ######################### NOTE: QUESTION  ##############################
         # The path is produced by an A* algorithm. This means that it is
         # optimal in length but 1) not smooth and 2) length optimality
         # may not be desired for coverage-based exploration
+
+        step = 1
+        n_subgoals = (int) (len(self.path)/step)
+        self.subtargets = []
+
+        [rx, ry] = [\
+            self.robot_perception.robot_pose['x_px'] - \
+                    self.robot_perception.origin['x'] / self.robot_perception.resolution,\
+            self.robot_perception.robot_pose['y_px'] - \
+                    self.robot_perception.origin['y'] / self.robot_perception.resolution\
+                    ]
+
+        st_x = self.path[-1][0]
+        st_y = self.path[-1][1]
+
+        offset = 3.5
+        if (abs(st_y - ry) >= 20):
+            self.subtargets.append([rx - offset, ry + (st_y - ry)/3])
+            self.subtargets.append([rx + offset, ry + 2*((st_y - ry)/3)])
+
+        if abs(st_y - ry) >= 5 and abs(st_x - rx) >= 5:
+            self.subtargets.append([rx, st_y])
+        
+        if (abs(st_x - rx) >= 20):
+            self.subtargets.append([rx + (st_x - rx)/2, st_y - offset])
+            self.subtargets.append([rx + 2*((st_x - rx)/3), st_y + offset])
+
+        self.subtargets.append(self.path[-1])
+
+        self.next_subtarget = 0
+        print "The path produced " + str(len(self.subtargets)) + " subgoals"
+
         ########################################################################
 
         self.counter_to_next_sub = self.count_limit
@@ -230,7 +268,10 @@ class Navigation:
           # Fill the ps.pose.position values to show the path in RViz
           # You must understand what self.robot_perception.resolution
           # and self.robot_perception.origin are.
-        
+          
+          ps.pose.position.x = p[0] * self.robot_perception.resolution + self.robot_perception.origin.get('x')
+          ps.pose.position.y = p[1] * self.robot_perception.resolution + self.robot_perception.origin.get('y')
+          
           ########################################################################
           ros_path.poses.append(ps)
         self.path_publisher.publish(ros_path)
@@ -278,8 +319,20 @@ class Navigation:
 
         if self.subtargets and self.next_subtarget <= len(self.subtargets) - 1:
             st_x = self.subtargets[self.next_subtarget][0]
-            st_y = self.subtargets[self.next_subtarget][1]
-            
+            st_y = self.subtargets[self.next_subtarget][1] 
+
+            fi = math.atan2(st_y-ry, st_x-rx)
+
+            if abs(fi-theta) >= 0.1 and fi >= theta:
+              linear = 0
+              angular = 0.3
+            elif abs(fi-theta) >= 0.1 and fi < theta:
+              linear = 0
+              angular = -0.3
+            else:
+              linear = 0.3
+              angular = 0
+
         ######################### NOTE: QUESTION  ##############################
 
         return [linear, angular]

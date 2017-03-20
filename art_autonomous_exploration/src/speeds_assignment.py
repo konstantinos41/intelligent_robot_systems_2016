@@ -69,11 +69,26 @@ class RobotController:
       scan = self.laser_aggregation.laser_scan
       linear  = 0
       angular = 0
+
+      if self.move_with_target == True:
+        maxDistanceToObject = 0.1
+      else:
+        maxDistanceToObject = 1
+
       ############################### NOTE QUESTION ############################
       # Check what laser_scan contains and create linear and angular speeds
       # for obstacle avoidance
 
+      # Checks if there is an obstacle near the front of the robot
+      if min(scan[(len(scan)/2)-80:(len(scan)/2)+80]) > maxDistanceToObject:
+        linear  = 1
+        angular = 0
+      else:
+        linear  = 0
+        angular = 1
+
       ##########################################################################
+
       return [linear, angular]
 
     # Combines the speeds into one output using a motor schema approach
@@ -105,16 +120,27 @@ class RobotController:
       
       if self.move_with_target == True:
         [l_goal, a_goal] = self.navigation.velocitiesToNextSubtarget()
+        
         ############################### NOTE QUESTION ############################
         # You must combine the two sets of speeds. You can use motor schema,
         # subsumption of whatever suits your better.
+        
+        if l_laser != 0:
+          self.linear_velocity  = l_goal
+          self.angular_velocity = a_goal
+        else:
+          self.linear_velocity  = -0.3*l_laser
+          self.angular_velocity = 0*a_laser   
 
         ##########################################################################
       else:
         ############################### NOTE QUESTION ############################
         # Implement obstacle avoidance here using the laser speeds.
         # Hint: Subtract them from something constant
-        pass
+        
+        self.linear_velocity = 0.3*l_laser
+        self.angular_velocity = -0.3*a_laser
+
         ##########################################################################
 
     # Assistive functions

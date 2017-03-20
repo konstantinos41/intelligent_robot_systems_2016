@@ -85,9 +85,29 @@ class TargetSelection:
         # Random point
         if self.method == 'random' or force_random == True:
           target = self.selectRandomTarget(ogm, coverage, brush, ogm_limits)
-        ########################################################################
 
+        # Furhest node-point
+        if self.method == 'furthest':
+          target = self.selectFurthestTarget(ogm, coverage, brush, ogm_limits, nodes)
+ 
         return target
+
+    def selectFurthestTarget(self, ogm, coverage, brushogm, ogm_limits, nodes):
+      # The next target in pixels
+        tinit = time.time()
+        next_target = [0,0]
+        for i in range(len(nodes)-1, 0, -1):
+            x = nodes[i][0]
+            y = nodes[i][1]
+            if  ogm[x][y] < 50 and coverage[x][y] < 50 and \
+              brushogm[x][y] > 10:
+                next_target = [x,y]
+                Print.art_print("Select furthest target time: " + str(time.time() - tinit), \
+                    Print.ORANGE)
+                return next_target
+        return self.selectRandomTarget(ogm, coverage, brushogm, ogm_limits)
+
+    ########################################################################
 
     def selectRandomTarget(self, ogm, coverage, brushogm, ogm_limits):
       # The next target in pixels

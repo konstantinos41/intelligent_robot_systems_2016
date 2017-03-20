@@ -16,6 +16,12 @@ from skimage.morphology import skeletonize
 
 #scipy.misc.imsave('/home/manos/Desktop/test.png', self.coverage)
 
+def processInput(self,item):
+  if item > 49:
+    return 1
+  else:
+    return 0
+
 class Topology:
 
   def skeletonizationCffi(self, ogm, origin, resolution, ogml):
@@ -24,19 +30,49 @@ class Topology:
 
     local = numpy.zeros(ogm.shape)
 
-    for i in range(0, width):
-      for j in range(0, height):
+    start = time.time()
+
+  ########################################################################
+  ####################### Original Code ##################################
+
+    # for i in range(0, width):
+    #   for j in range(0, height):
+    #     if ogm[i][j] < 49:
+    #       local[i][j] = 1
+
+  ############################ Added code #################################
+    step = 50
+    first = [0,0]
+    last = [0,0]
+    # Find the area in which there is propability of coverage
+    for i in range(0, width, step):
+      for j in range(0, height, step):
+        if ogm[i][j] < 49:
+          if first == [0,0]:
+            first = [i,j]
+          last = [i,j]
+
+    # Search only in the area found
+    for i in range (first[0]-step, last[0]+step):
+      for j in range (first[1]-step, last[1]+step):
         if ogm[i][j] < 49:
           local[i][j] = 1
+
+  #########################################################################
+    
+    end = time.time()
+
+    print end-start
     
     skeleton = Cffi.thinning(local, ogml)
     skeleton = Cffi.prune(skeleton, ogml, 10)
-  
+
     viz = []
     for i in range(0, width):
       for j in range(0, height):
         if skeleton[i][j] == 1:
           viz.append([i * resolution + origin['x'],j * resolution + origin['y']])
+
 
     RvizHandler.printMarker(\
             viz,\
@@ -49,6 +85,8 @@ class Topology:
         )
 
     return skeleton
+
+
 
   def skeletonization(self, ogm, origin, resolution, ogml):
     width = ogm.shape[0]
